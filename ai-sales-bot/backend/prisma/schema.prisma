@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String    @id @default(uuid())
+  username    String    @unique
+  password    String
+  role        String
+  permissions Json
+  createdAt   DateTime  @default(now())
+  tasks       Task[]
+  qualityRatings QualityRating[]
+
+  @@map("users")
+}
+
+model Customer {
+  id         String   @id @default(uuid())
+  phoneNumber String   @unique
+  name       String?
+  email      String?
+  status     String   @default("active")
+  attributes Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  calls      Call[]
+
+  @@map("customers")
+}
+
+model Task {
+  id           String    @id @default(uuid())
+  name         String
+  description  String?
+  scriptId     String
+  strategyId   String
+  status       String    @default("pending")
+  scheduledTime DateTime?
+  createdAt    DateTime  @default(now())
+  createdBy    String
+  createdById  User      @relation(fields: [createdById], references: [id])
+  calls        Call[]
+
+  @@map("tasks")
+}
+
+model Call {
+  id             String         @id @default(uuid())
+  taskId         String
+  customerId     String
+  scriptId       String
+  status         String         @default("calling")
+  startTime      DateTime       @default(now())
+  endTime        DateTime?
+  duration       Int?
+  metadata       Json?
+  transcripts    Transcript[]
+  intentAnalysis IntentAnalysis?
+  feedbacks      Feedback[]
+
+  task           Task           @relation(fields: [taskId], references: [id])
+  customer       Customer       @relation(fields: [customerId], references: [id])
+
+  @@map("calls")
+}
+
+model Transcript {
+  id         String   @id @default(uuid())
+  callId     String
+  speaker    String
+  content    String
+  timestamp  DateTime @default(now())
+  confidence Float?
+
+  call       Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("transcripts")
+}
+
+model IntentAnalysis {
+  id          String   @id @default(uuid())
+  callId      String   @unique
+  score       Int
+  level       String
+  reasons     Json?
+  suggestions Json?
+  createdAt   DateTime @default(now())
+
+  call        Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("intent_analyses")
+}
+
+model Script {
+  id        String          @id @default(uuid())
+  name      String
+  description String?
+  scenario  String
+  content   Json
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  versions  ScriptVersion[]
+  tasks     Task[]
+  calls     Call[]
+
+  @@map("scripts")
+}
+
+model ScriptVersion {
+  id        String   @id @default(uuid())
+  scriptId  String
+  version   Int
+  content   Json
+  createdAt DateTime @default(now())
+
+  script    Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+
+  @@unique([scriptId, version])
+  @@map("script_versions")
+}
+
+model Strategy {
+  id        String   @id @default(uuid())
+  name      String
+  settings  Json
+  createdAt DateTime @default(now())
+  tasks     Task[]
+
+  @@map("strategies")
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  callId    String
+  type      String
+  content   String
+  sentiment String
+  createdAt DateTime @default(now())
+
+  call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("feedbacks")
+}
+
+model QualityRating {
+  id        String   @id @default(uuid())
+  callId    String   @unique
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("quality_ratings")
+}
